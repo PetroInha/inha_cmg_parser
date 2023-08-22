@@ -4,176 +4,177 @@ import matplotlib.cm as cm
 import numpy as np
 from mpl_toolkits.mplot3d import Axes3D
 
-def read_out_grid(tstep, filename = 'Forward_simulation.out', nx=64, ny=64, ini_sw = 0.156, ini_press = 3100):
+def read_out_grid(Ptime, filename = 'Forward_simulation.out', nx=64, ny=64, nz=20):
     f = open(filename, 'r')
-    f_ = f.readlines()
+    lines = f.readlines()
     f.close()
-    
-    num_tstep = tstep.shape[0]
-    
-    
-    Pressure = np.zeros((num_tstep+1,ny,nx)); Pressure[0] = ini_press
-    Water_sat = np.zeros((num_tstep+1,ny,nx)); Water_sat[0] = ini_sw
-    Oil_sat = np.zeros((num_tstep+1,ny,nx)); Oil_sat[0] = 1 - ini_sw
-    
-    flag = -1
-    t_flag = 1
-    
-    for i in range(len(f_)):
-        # Read Line:
-        line = f_[i].split()
-        ## Read Oil saturation:
-        if flag == -1:
-            if [''.join(line)][0] == 'OilSaturation(fraction)':
-                flag += 1;
-        elif flag == 0:
-            if [''.join(line)][0] == 'OilSaturation(fraction)':
-                flag += 1;
-        
-        if flag == 1:
-            temp = f_[i+3:i+3+330]
-            grid_list =[]
-            for grid_line in range(len(temp)):
-                if temp[grid_line].split() == []:
-                    continue
-                elif temp[grid_line].split()[0] == 'I': 
-                    temp_ = temp[grid_line+1:grid_line+1+64]
-                    temp_list = []
-                    for grid_line_ in temp_:
-                        grid_line_ = grid_line_.split()
-                        grid_line_ = list(map(lambda x: x.replace("p", ""), grid_line_))
-                        grid_line_ = list(map(lambda x: x.replace("i", ""), grid_line_))
-                        grid_line_ = np.array(grid_line_)[2:].reshape(1,-1)
-                        temp_list.append(grid_line_)
-                    grid_list.append(np.array(temp_list,dtype = float).squeeze()[::-1,:])
-            
-            for flg in range(4):
-                Oil_sat[t_flag,:,0+14*flg:14+14*flg] = grid_list[flg]
-            Oil_sat[t_flag,:,-8:] = grid_list[-1]
-            t_flag += 1;
-            flag = 0;       
 
-    flag = -1
-    t_flag = 1
-    for i in range(len(f_)):
+    ################### OSAT ##########################   
+
+    grid_property = - np.ones((len(Ptime)+1,nz,ny,nx))
+    t_flag = 0
+
+    for i in range(len(lines)):
         # Read Line:
-        line = f_[i].split()
-        ## Read Water saturation:
-        if flag == -1:
-            if [''.join(line)][0] == 'WaterSaturation(fraction)':
-                flag += 1;
-        elif flag == 0:
-            if [''.join(line)][0] == 'WaterSaturation(fraction)':
-                flag += 1;
-        
-        if flag == 1:
-            temp = f_[i+3:i+3+330]
-            grid_list =[]
-            for grid_line in range(len(temp)):
-                if temp[grid_line].split() == []:
-                    continue
-                elif temp[grid_line].split()[0] == 'I': 
-                    temp_ = temp[grid_line+1:grid_line+1+64]
-                    temp_list = []
-                    for grid_line_ in temp_:
-                        grid_line_ = grid_line_.split()
-                        grid_line_ = list(map(lambda x: x.replace("p", ""), grid_line_))
-                        grid_line_ = list(map(lambda x: x.replace("i", ""), grid_line_))
-                        grid_line_ = np.array(grid_line_)[2:].reshape(1,-1)
-                        temp_list.append(grid_line_)
-                    grid_list.append(np.array(temp_list,dtype = float).squeeze()[::-1,:])
-            
-            for flg in range(4):
-                Water_sat[t_flag,:,0+14*flg:14+14*flg] = grid_list[flg]
-            Water_sat[t_flag,:,-8:] = grid_list[-1]
-            t_flag += 1;
-            flag = 0;
-            
-    flag = -1
-    t_flag = 1
-    for i in range(len(f_)):
+        line = lines[i].split()
+        ## Read grid property:
+        if [''.join(line)][0] == 'OilSaturation(fraction)':
+            start = i + 2
+            for j in range(start,len(lines)):
+                if '*' * 70 in lines[j].split(' '):
+                    end = j
+                    break
+                elif '*' * 131 + '\n' in lines[j].split(' '):
+                    end = j
+                    break
+            val_lines = lines[start:end]
+
+            if not any(['Plane K = ' in var for var in val_lines]):
+                value = [''.join(val_lines[np.where(['All values are' in val for val in val_lines])[0][0]].split(' '))][0]
+                value = value.split('Allvaluesare')[1].split('\n')[0]
+                grid_property[t_flag] = value 
+                t_flag += 1
+                
+            else:
+                value_line_lst = list(np.where(['Plane K =' in  val for val in val_lines])[0])
+                value_line_lst.append(len(val_lines))
+                for v in range(len(value_line_lst)-1):
+                    s, e = value_line_lst[v], value_line_lst[v+1]
+                    values =  val_lines[s:e]
+                    k_flag = int(val_lines[s:e][0].split(' Plane K = ')[-1].split(' ')[0]) - 1 
+                    if any(['All values are' in val for val in values]):
+                        value = [''.join(values[np.where(['All values are' in val for val in values])[0][0]].split(' '))][0]
+                        value = value.split('Allvaluesare')[1].split('\n')[0]
+                        grid_property[t_flag, k_flag] = float(value)
+
+                    else:
+                        i_index = np.where(['    I = ' in val for val in values])[0]
+                        for tick in i_index: 
+                            i_flags = np.array(values[tick].split('  I = ')[-1].split('     '),dtype = int) -1
+                            f = lambda x: x if not x in ['', '\n'] else None
+                            j_flags = [list(filter(f,val.split(' J= ')[-1].split(' ')))[0] for val in values[tick+1:tick+ny+1]]
+                            j_flags = np.array(j_flags, dtype = int) - 1
+                            value = [list(filter(f,val.split(' J= ')[-1].split(' ')))[1:] for val in values[tick+1:tick+ny+1]]
+                            value = [ [val[:-1] if val[-1] in ['p','i'] else val for val in vals] for vals in value]
+                            value = np.array(value, dtype = float)
+
+                            for j_, val_ in zip(j_flags,value):
+                                grid_property[t_flag, k_flag, j_, list(i_flags)[0]:list(i_flags)[-1]+1] = val_
+                        
+                t_flag += 1
+
+    Oil_sat = grid_property  
+    ################### WSAT ##########################   
+    grid_property = - np.ones((len(Ptime)+1,nz,ny,nx))
+    t_flag = 0
+
+    for i in range(len(lines)):
         # Read Line:
-        line = f_[i].split()
-        ## Read Pressure:
-        if flag == -1:
-            if [''.join(line)][0] == 'Pressure(psia)':
-                flag += 1;
-        elif flag == 0:
-            if [''.join(line)][0] == 'Pressure(psia)':
-                flag += 1;
+        line = lines[i].split()
+        ## Read grid property:
+        if [''.join(line)][0] == 'WaterSaturation(fraction)':
+            start = i + 2
+            for j in range(start,len(lines)):
+                if '*' * 70 in lines[j].split(' '):
+                    end = j
+                    break
+                elif '*' * 131 + '\n' in lines[j].split(' '):
+                    end = j
+                    break
+            val_lines = lines[start:end]
+
+            if not any(['Plane K = ' in var for var in val_lines]):
+                value = [''.join(val_lines[np.where(['All values are' in val for val in val_lines])[0][0]].split(' '))][0]
+                value = value.split('Allvaluesare')[1].split('\n')[0]
+                grid_property[t_flag] = value 
+                t_flag += 1
+                
+            else:
+                value_line_lst = list(np.where(['Plane K =' in  val for val in val_lines])[0])
+                value_line_lst.append(len(val_lines))
+                for v in range(len(value_line_lst)-1):
+                    s, e = value_line_lst[v], value_line_lst[v+1]
+                    values =  val_lines[s:e]
+                    k_flag = int(val_lines[s:e][0].split(' Plane K = ')[-1].split(' ')[0]) - 1 
+                    if any(['All values are' in val for val in values]):
+                        value = [''.join(values[np.where(['All values are' in val for val in values])[0][0]].split(' '))][0]
+                        value = value.split('Allvaluesare')[1].split('\n')[0]
+                        grid_property[t_flag, k_flag] = float(value)
+
+                    else:
+                        i_index = np.where(['    I = ' in val for val in values])[0]
+                        for tick in i_index: 
+                            i_flags = np.array(values[tick].split('  I = ')[-1].split('     '),dtype = int) -1
+                            f = lambda x: x if not x in ['', '\n'] else None
+                            j_flags = [list(filter(f,val.split(' J= ')[-1].split(' ')))[0] for val in values[tick+1:tick+ny+1]]
+                            j_flags = np.array(j_flags, dtype = int) - 1
+                            value = [list(filter(f,val.split(' J= ')[-1].split(' ')))[1:] for val in values[tick+1:tick+ny+1]]
+                            value = [ [val[:-1] if val[-1] in ['p','i'] else val for val in vals] for vals in value]
+                            value = np.array(value, dtype = float)
+
+                            for j_, val_ in zip(j_flags,value):
+                                grid_property[t_flag, k_flag, j_, list(i_flags)[0]:list(i_flags)[-1]+1] = val_
+                        
+                t_flag += 1
+
+    Water_sat = grid_property  
+
+    ################### PRESSURE ##########################   
+    grid_property = - np.ones((len(Ptime)+1,nz,ny,nx))
+    t_flag = 0
+
+    for i in range(len(lines)):
+        # Read Line:
+        line = lines[i].split()
+        ## Read grid property:
+        if [''.join(line)][0] == 'Pressure(psi)':
+            start = i + 2
+            for j in range(start,len(lines)):
+                if '*' * 70 in lines[j].split(' '):
+                    end = j
+                    break
+                elif '*' * 131 + '\n' in lines[j].split(' '):
+                    end = j
+                    break
+            val_lines = lines[start:end]
+
+            if not any(['Plane K = ' in var for var in val_lines]):
+                value = [''.join(val_lines[np.where(['All values are' in val for val in val_lines])[0][0]].split(' '))][0]
+                value = value.split('Allvaluesare')[1].split('\n')[0]
+                grid_property[t_flag] = value 
+                t_flag += 1
+                
+            else:
+                value_line_lst = list(np.where(['Plane K =' in  val for val in val_lines])[0])
+                value_line_lst.append(len(val_lines))
+                for v in range(len(value_line_lst)-1):
+                    s, e = value_line_lst[v], value_line_lst[v+1]
+                    values =  val_lines[s:e]
+                    k_flag = int(val_lines[s:e][0].split(' Plane K = ')[-1].split(' ')[0]) - 1 
+                    if any(['All values are' in val for val in values]):
+                        value = [''.join(values[np.where(['All values are' in val for val in values])[0][0]].split(' '))][0]
+                        value = value.split('Allvaluesare')[1].split('\n')[0]
+                        grid_property[t_flag, k_flag] = float(value)
+
+                    else:
+                        i_index = np.where(['    I = ' in val for val in values])[0]
+                        for tick in i_index: 
+                            i_flags = np.array(values[tick].split('  I = ')[-1].split('     '),dtype = int) -1
+                            f = lambda x: x if not x in ['', '\n'] else None
+                            j_flags = [list(filter(f,val.split(' J= ')[-1].split(' ')))[0] for val in values[tick+1:tick+ny+1]]
+                            j_flags = np.array(j_flags, dtype = int) - 1
+                            value = [list(filter(f,val.split(' J= ')[-1].split(' ')))[1:] for val in values[tick+1:tick+ny+1]]
+                            value = [ [val[:-1] if val[-1] in ['p','i'] else val for val in vals] for vals in value]
+                            value = np.array(value, dtype = float)
+
+                            for j_, val_ in zip(j_flags,value):
+                                grid_property[t_flag, k_flag, j_, list(i_flags)[0]:list(i_flags)[-1]+1] = val_
+                        
+                t_flag += 1
+
+    Pressure = grid_property
         
-        if flag == 1:
-            temp = f_[i+3:i+3+330]
-            grid_list =[]
-            for grid_line in range(len(temp)):
-                if temp[grid_line].split() == []:
-                    continue
-                elif temp[grid_line].split()[0] == 'I': 
-                    temp_ = temp[grid_line+1:grid_line+1+64]
-                    temp_list = []
-                    for grid_line_ in temp_:
-                        grid_line_ = grid_line_.split()
-                        grid_line_ = list(map(lambda x: x.replace("p", ""), grid_line_))
-                        grid_line_ = list(map(lambda x: x.replace("i", ""), grid_line_))
-                        grid_line_ = np.array(grid_line_)[2:].reshape(1,-1)
-                        temp_list.append(grid_line_)
-                    grid_list.append(np.array(temp_list,dtype = float).squeeze()[::-1,:])
-            
-            for flg in range(4):
-                Pressure[t_flag,:,0+14*flg:14+14*flg] = grid_list[flg]
-            Pressure[t_flag,:,-8:] = grid_list[-1]
-            t_flag += 1;
-            flag = 0;
-            
     return Oil_sat, Water_sat, Pressure
-
-def null_prod(tstep, num_en = 1, num_iter = 1, num_prod=4, num_inj=1) :
-    num_tstep = tstep.shape[0]
-
-    if num_en ==1:
-        WBHP = np.zeros((num_en,num_tstep, num_prod+num_inj))
-        WGBP = np.zeros((num_en,num_tstep, num_prod+num_inj))
-        
-        WOPR = np.zeros((num_tstep, num_prod))
-        WWPR = np.zeros((num_tstep, num_prod))
-        WGPR = np.zeros((num_tstep, num_prod))
-        
-        WCOP = np.zeros((num_tstep, num_prod))
-        WCWP = np.zeros((num_tstep, num_prod))
-        WCGP = np.zeros((num_tstep, num_prod))
-        
-        WWIR = np.zeros((num_tstep, num_inj))
-        WCWI = np.zeros((num_tstep, num_inj))        
-    elif num_iter==1:
-        WBHP = np.zeros((num_en,num_tstep, num_prod+num_inj))
-        WGBP = np.zeros((num_en,num_tstep, num_prod+num_inj))
-        
-        WOPR = np.zeros((num_en,num_tstep, num_prod))
-        WWPR = np.zeros((num_en,num_tstep, num_prod))
-        WGPR = np.zeros((num_en,num_tstep, num_prod))
-        
-        WCOP = np.zeros((num_en,num_tstep, num_prod))
-        WCWP = np.zeros((num_en,num_tstep, num_prod))
-        WCGP = np.zeros((num_en,num_tstep, num_prod))
-        
-        WWIR = np.zeros((num_en,num_tstep, num_inj))
-        WCWI = np.zeros((num_en,num_tstep, num_inj))
-    else:
-        WBHP = np.zeros((num_iter, num_en, num_tstep, num_prod+num_inj))
-        WGBP = np.zeros((num_iter, num_en, num_tstep, num_prod+num_inj))
-        
-        WOPR = np.zeros((num_iter, num_en, num_tstep, num_prod))
-        WWPR = np.zeros((num_iter, num_en, num_tstep, num_prod))
-        WGPR = np.zeros((num_iter, num_en, num_tstep, num_prod))
-        
-        WCOP = np.zeros((num_iter, num_en, num_tstep, num_prod))
-        WCWP = np.zeros((num_iter, num_en, num_tstep, num_prod))
-        WCGP = np.zeros((num_iter, num_en, num_tstep, num_prod))
-        
-        WWIR = np.zeros((num_iter, num_en, num_tstep, num_inj))
-        WCWI = np.zeros((num_iter, num_en, num_tstep, num_inj))        
-    # return WBHP, WGBP, WOPR, WWPR, WGPR, WCOP, WCWP, WCGP, WWIR, WCWI
-    return WBHP, WOPR, WWPR, WGPR, WCOP, WCWP, WCGP, WWIR, WCWI
 
 def read_out(tstep,filename = 'Forward_simulation.out',num_prod=4, num_inj=1,) :
     f = open(filename, 'r')
@@ -489,6 +490,9 @@ def plot_v_cs_(Gen, Mask,n, save = False, colorbar = False, vmin = -1, vmax = 1)
     ax.set_yticklabels(['10','8','6','4','2','0'])    
     if save != False:
         fig.savefig("2D_plot_vertical_" + str(n)+".png")     
+
+def null_grid(num_en = 100, nx = 100, ny = 100, nz = 10, tstep = np.array(range(100,3001,100))):
+    return np.zeros((num_en, len(tstep), nz, ny, nx)), np.zeros((num_en, len(tstep), nz, ny, nx)), np.zeros((num_en, len(tstep), nz, ny, nx))
 
 def null_prod(num_en = 100, num_prod=4, num_inj=1, tstep = np.array(range(100,3001,100))) :
 
