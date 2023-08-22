@@ -1,0 +1,210 @@
+RESULTS SIMULATOR IMEX
+
+   ********************************************************************************
+   ** I/O Control Section                                                        **
+   ********************************************************************************
+
+   *TITLE1
+   'HG_Example'
+   
+   *INUNIT *FIELD              
+
+   *WPRN   *WELL   TIME
+
+   *OUTPRN *WELL   *ALL
+   *OUTPRN *GRID   *SO *SW *PRES 
+   *OUTPRN *TABLES *NONE	
+   *OUTPRN *RES    *NONE
+   
+   *WSRF   *GRID   *TIME
+   *WSRF   *WELL   *TIME 
+   *OUTSRF *GRID   *SO *SG *SW *PRES *BPP
+
+   **INCLUDE 'Control_Restart.DAT'
+
+   ********************************************************************************
+   ** Reservoir Description Section                                              **
+   ********************************************************************************
+
+   *GRID *CART 28 28 20    ** 10 blocks in each the I (x) and J (y) directions.
+                               ** 3 layers in the K (z) direction.
+   *DI *CON 50.0             ** I direction block dimensions constant at 300 ft.
+   *DJ *CON 50.0             ** J direction block dimensions constant at 300 ft.
+   *DK *CON 6                  ** middle and uppermost layers, respectively.   
+
+   *DEPTH 1 1 1 3000.0         ** Depth to center of first block, in bottom layer.
+
+   *INCLUDE 'PORO.DAT'
+   
+   *CPOR  3.0E-6              ** Rock compressibility and
+   *PRPOR 14.7                 ** reference pressure.   
+
+   *INCLUDE 'PERM_X.DAT'
+   *INCLUDE 'PERM_Y.DAT'
+   *INCLUDE 'PERM_Z.DAT'
+
+   *MODEL *BLACKOIL            ** Solve three equations.
+
+   ********************************************************************************
+   ** Component Property Section                                                 **
+   ********************************************************************************
+
+   *PVT
+   ** p              rs      bo          eg    viso     visg
+     14.70000   1.00000   1.06200   6.00000   1.04000 0.0080000
+      264.700  90.50000   1.15000  82.70000 0.9750000 0.0096000
+      514.700   180.000   1.20700   159.000 0.9100000 0.0112000
+     1014.700   371.000   1.29500   313.000 0.8300000 0.0140000
+     2014.700   636.000   1.43500   620.000 0.6950000 0.0189000
+     2514.000   775.000   1.50000   773.000 0.6410000 0.0208000
+     3014.700   930.000   1.56500   926.000 0.5940000 0.0228000
+     4014.700  1270.000   1.69500  1233.000 0.5100000 0.0268000
+     5014.700  1618.000   1.82700  1541.000 0.4490000 0.0309000
+     9014.700  2984.000   2.35700  2591.000 0.2030000 0.0470000
+
+** Note : The above PVT data violates the total hydrocarbon compressibility check. To correct,
+** you could either change rs value at p=5014.7 from 1618 to 1600 or to change the last bo entry 
+** from 2.357 to 2.352.  Other possibilities could be equally appllied. The above corrections 
+** were tested and they have insignificant effects. 
+
+
+   *DENSITY *OIL    46.244
+   *DENSITY *GAS     0.0647
+   *DENSITY *WATER  62.238
+   *CO    1.3687E-5
+   *CVO   4.6000E-5
+   *BWI   1.0410
+   *CW    2.9886E-6
+   *REFPW 14.7
+   *VWI   0.31
+   *CVW   0.0   
+   
+
+   *ROCKFLUID
+   ********************************************************************************
+   ** Rock-Fluid Property Section                                                **
+   ********************************************************************************
+   *RPT 1
+
+*SWT                          ** Water-oil relative permeability table
+** sw          krw     krow       pcow
+0.151090       0.0     1.0        400.0
+0.151230       0.0     0.99997    359.190
+0.151740       0.0     0.99993    257.920
+0.152460       0.0     0.99991    186.310
+0.156470       0.0     0.999510    79.060
+0.165850       0.0     0.996290    40.010
+0.178350       0.0     0.991590    27.930
+0.203350   0.000010    0.978830    20.400
+0.253350   0.000030    0.943730    15.550
+0.350000   0.000280    0.830230    11.655
+0.352000   0.002292    0.804277     8.720
+0.354000   0.004304    0.778326     5.947
+0.356000   0.006316    0.752374     3.317
+0.358000   0.008328    0.726422     1.165
+0.360000   0.010340    0.700470     0.463
+0.364395   0.015548    0.642258    -0.499
+0.368790   0.020756    0.584046    -1.139
+0.370000   0.022190    0.568020    -1.194
+0.380000   0.035890    0.434980    -1.547
+0.400000   0.069530    0.171430    -1.604
+0.433450   0.087900    0.125310    -1.710
+0.461390   0.104910    0.094980    -1.780
+0.489320   0.123290    0.070530    -1.860
+0.517250   0.143030    0.051130    -1.930
+0.573120   0.186590    0.024640    -2.070
+0.601060   0.210380    0.016190    -2.130
+0.656930   0.261900    0.005940    -2.260
+0.712800   0.318650    0.001590    -2.380
+0.811110   0.430920    0.000020    -2.600
+0.881490   0.490000    0.000000    -2.75
+
+*SGT                           ** Liquid-gas relative permeability table
+** sl        krg    krog   pcog
+0.000000   0.0000   1.00   0.0
+0.040000   0.0000   0.60   0.2
+0.100000   0.0220   0.33   0.5
+0.200000   0.1000   0.10   1.0
+0.300000   0.2400   0.02   1.5
+0.400000   0.3400   0.00   2.0
+0.500000   0.4200   0.00   2.5
+0.600000   0.5000   0.00   3.0
+0.700000   0.8125   0.00   3.5
+0.848910   1.0000   0.00   3.9
+
+   *INITIAL
+   ********************************************************************************
+   ** Initial Conditions Section                                                 **
+   ********************************************************************************
+   *VERTICAL *BLOCK_CENTER 
+   *WATER_OIL_GAS 
+   ** Use vertical equilibrium calculation.
+   *PB *CON    4014.7          ** buble point pressure
+   *REFDEPTH   3000.           ** Give a reference depth  and
+   *REFPRES    3100.           ** associated pressure.
+   *DWOC       3500.           ** Depth to water-oil contact
+   *DGOC       2500.           ** Depth to gas-oil contract   
+
+
+   *NUMERICAL
+   ********************************************************************************
+   ** Numerical Control Section                                                  **
+   ********************************************************************************
+	*DTMAX       60.
+	*MAXSTEPS    9999
+	*NORM *PRESS 500.
+	*NORM *SATUR 0.04  ** For this case, a relatively low CPU time is obtained with
+					   ** a relatively low *NORM *SATUR.
+					   ** Larger *NORM *SATUR reduce the total number of timesteps
+					   ** but increase the number of Newton iterations.
+					   ** The total number of Newton iterations gives a much better
+					   ** indication of total CPU time than the number of timesteps.
+					   ** Lower CPU times were obtained using adaptive implicit than
+					   ** fully implicit.
+					   ** For a fully implicit version of this case, a *NORM *SATUR
+					   ** of 0.05 has a lower CPU time than with 0.04.
+					   ** Fully implicit cases may be run using *AIM *OFF in this
+					   ** section and in the *RUN section commenting out *AIMWELL
+					   ** *WELLN and inserting *AIMSET *CON 1.
+	*MAXCHANGE *SATUR 0.10 ** removes a cut a timstep 42 and reduces total Newton
+						   ** iterations by 3. Default value is 2*(NORM *SATUR)=.8
+	*PRECC 0.005
+	*RUN
+   ********************************************************************************
+   ** Well and Recurrent Data Section                                            **
+   ********************************************************************************
+   *DATE 2021 01 18
+   *DTWELL 1.0
+                        
+   *WELL 1   'Producer1'  *VERT 2 2   
+   *WELL 2   'Producer2'  *VERT 2 25   	 
+   *WELL 3   'Producer3'  *VERT 25 25  	  
+   *WELL 4   'Producer4'  *VERT 25 2 
+   *WELL 5   'Injector'   *VERT 13 13    
+   
+   
+   *INCLUDE 'Control_Prod.DAT'
+   
+   ** Well geometry for the producers.
+   **            rad    geofac  wfrac   skin
+   *GEOMETRY *K  0.5     0.355    1.0    0.0
+
+   
+   *PERFV *GEO 1:4
+   ** kf     ff
+      1:1     1
+
+   
+   *INCLUDE 'Control_Inj.DAT'
+   
+   ** Well geometry for the water injector.
+   **            rad    geofac  wfrac   skin
+   *GEOMETRY *K  0.5     0.355    1.0    0.0
+   
+   *PERFV *GEO 5
+   **  kf      ff
+      1:1     1
+		
+   *INCLUDE 'TSTEP.DAT'	 
+   
+*STOP                               ** Stop the simulation.   
